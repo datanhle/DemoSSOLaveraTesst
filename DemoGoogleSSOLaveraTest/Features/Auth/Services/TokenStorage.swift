@@ -5,49 +5,52 @@
 //  Created by DatLeAnh on 8/8/25.
 //
 
+import Foundation
+
 protocol TokenStorage {
-    func saveAccessToken(_ token: String) -> Bool
-    func loadAccessToken() -> String?
-    func deleteAccessToken() -> Bool
-
-    func saveRefreshToken(_ token: String) -> Bool
-    func loadRefreshToken() -> String?
-    func deleteRefreshToken() -> Bool
-
+    func saveToken(_ token: TokenModel) -> Bool
+    func loadToken() -> TokenModel?
+    func deleteToken() -> Bool
     func clearAll() -> Bool
 }
 
 final class TokenStorageService: TokenStorage {
     private let keychain: KeychainStorable
-    private let accessKey = "access_token"
-    private let refreshKey = "refresh_token"
+    private let tokenKey = "oauth_token"
 
     init(keychain: KeychainStorable = KeychainServiceImpl()) {
         self.keychain = keychain
     }
 
-    func saveAccessToken(_ token: String) -> Bool {
-        keychain.save(token, for: accessKey)
+    func saveToken(_ token: TokenModel) -> Bool {
+        do {
+            let data = try JSONEncoder().encode(token)
+            guard let jsonString = String(data: data, encoding: .utf8) else {
+                return false
+            }
+            return keychain.save(jsonString, for: tokenKey)
+        } catch {
+            print("❌ Token encode error: \(error)")
+            return false
+        }
     }
 
-    func loadAccessToken() -> String? {
-        keychain.load(for: accessKey)
+    func loadToken() -> TokenModel? {
+        guard let jsonString = keychain.load(for: tokenKey),
+              let data = jsonString.data(using: .utf8) else {
+            return nil
+        }
+
+        do {
+            return try JSONDecoder().decode(TokenModel.self, from: data)
+        } catch {
+            print("❌ Token decode error: \(error)")
+            return nil
+        }
     }
 
-    func deleteAccessToken() -> Bool {
-        keychain.delete(key: accessKey)
-    }
-
-    func saveRefreshToken(_ token: String) -> Bool {
-        keychain.save(token, for: refreshKey)
-    }
-
-    func loadRefreshToken() -> String? {
-        keychain.load(for: refreshKey)
-    }
-
-    func deleteRefreshToken() -> Bool {
-        keychain.delete(key: refreshKey)
+    func deleteToken() -> Bool {
+        keychain.delete(key: tokenKey)
     }
 
     func clearAll() -> Bool {

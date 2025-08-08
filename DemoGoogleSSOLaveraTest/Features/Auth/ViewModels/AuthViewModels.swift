@@ -13,6 +13,7 @@ final class AuthViewModel: ObservableObject {
     // MARK: - Published properties (UI binding)
     @Published var user: UserModel?
     @Published var isLoading: Bool = false
+    @Published var isLoggedIn: Bool = false
     @Published var errorMessage: String?
 
     // MARK: - Dependencies
@@ -43,9 +44,12 @@ final class AuthViewModel: ObservableObject {
             DispatchQueue.main.async {
                   switch result {
                   case .success(let token):
-                      print("✅ Got token: \(token)")
-                      self?.tokenStorage.saveAccessToken(token)
-                      self?.fetchUserInfo(accessToken: token)
+                      let saved = self?.tokenStorage.saveToken(token) ?? false
+                                   if saved {
+                                       DispatchQueue.main.async {
+                                           self?.isLoggedIn = true
+                                       }
+                                   }
                   case .failure(let error):
                       self?.isLoading = false
                       self?.errorMessage = "Failed to get token: \(error.localizedDescription)"
@@ -56,7 +60,7 @@ final class AuthViewModel: ObservableObject {
 
     /// Fetch user info after login or if token available
     func fetchUserInfo(accessToken: String? = nil) {
-        let token = accessToken ?? tokenStorage.loadAccessToken()
+        let token = accessToken ?? tokenStorage.loadToken()?.accessToken
 
         guard let token else {
             self.errorMessage = "No access token found."
@@ -77,15 +81,40 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    /// Logout - clear token & user
+    /// Logout - revoke token, clear token & user
     func logout() {
-        let _ = tokenStorage.deleteAccessToken()
+        isLoading = true
+
+        guard let token = tokenStorage.loadToken()?.accessToken else {
+            clearSession()
+            isLoading = false
+            return
+        }
+
+        authService.revokeToken(token) { [weak self] result in
+            guard let self = self else { return }
+
+            DispatchQueue.main.async {
+                self.clearSession()
+                self.isLoading = false
+
+                if case .failure(let error) = result {
+                    self.errorMessage = "Logout failed: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+
+    private func clearSession() {
+        tokenStorage.clearAll()
+        isLoggedIn = false
         user = nil
     }
 
     /// Auto login if token exists
     func tryAutoLogin() {
-        if tokenStorage.loadAccessToken() != nil {
+        if tokenStorage.loadToken()?.accessToken != nil {
             fetchUserInfo()
         }
     }
@@ -117,4 +146,60 @@ final class AuthViewModel: ObservableObject {
          authSession?.prefersEphemeralWebBrowserSession = true
          authSession?.start()
      }
+    
+    func checkTokenOnLaunch() {
+        guard let token = tokenStorage.loadToken() else {
+            self.isLoggedIn = false
+            return
+        }
+
+        if isTokenExpired(token) {
+            refreshToken()
+        } else {
+            self.isLoggedIn = true
+        }
+    }
+    
+    private func isTokenExpired(_ token: TokenModel) -> Bool {
+        guard let expiresIn = token.expiresIn else {
+            return true
+        }
+
+        let expiryDate = token.issuedAt.addingTimeInterval(TimeInterval(expiresIn - 5))
+        return Date() >= expiryDate
+    }
+    
+    private func refreshToken() {
+        guard let refreshToken = tokenStorage.loadToken()?.refreshToken else {
+            self.isLoggedIn = false
+            return
+        }
+
+        authService.refreshAccessToken(refreshToken: refreshToken) { [weak self] result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let newToken):
+                    // Lưu token mới
+                    let saved = self?.tokenStorage.saveToken(newToken) ?? false
+                                 if saved {
+                                     DispatchQueue.main.async {
+                                         self?.isLoggedIn = true
+                                     }
+                                 }
+                case .failure(let error):
+                    print("❌ Refresh token failed: \(error.localizedDescription)")
+                    self?.isLoggedIn = false
+                    self?.tokenStorage.clearAll()
+                }
+            }
+        }
+    }
+}
+
+extension AuthViewModel {
+    struct Constants {
+          static let userInfoTitle = "User Info"
+          static let signOut = "Sign Out"
+          static let unknownUser = "Unknown"
+      }
 }

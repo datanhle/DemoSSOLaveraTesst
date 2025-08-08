@@ -10,13 +10,13 @@ import SwiftUI
 import SwiftUI
 
 struct UserInfoView: View {
-    @EnvironmentObject var viewModel: AuthViewModel
+    @StateObject var viewModel: AuthViewModel
 
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
 
-            Text("User Info")
+            Text(AuthViewModel.Constants.userInfoTitle)
                 .font(.title)
                 .fontWeight(.semibold)
 
@@ -27,7 +27,7 @@ struct UserInfoView: View {
                 .padding(.top, 20)
 
             if let user = viewModel.user {
-                Text(user.name ?? "Unknown")
+                Text(user.name)
                     .font(.title2)
                     .fontWeight(.bold)
 
@@ -41,7 +41,7 @@ struct UserInfoView: View {
             Button(action: {
                 viewModel.logout()
             }) {
-                Text("Sign Out")
+                Text(AuthViewModel.Constants.signOut)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color.gray.opacity(0.2))
