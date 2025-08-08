@@ -131,7 +131,21 @@ final class AuthViewModel: ObservableObject {
          ) { callbackURL, error in
              DispatchQueue.main.async {
                   if let error = error {
-                      self.errorMessage = error.localizedDescription
+                      if let authError = error as? ASWebAuthenticationSessionError {
+                                    switch authError.code {
+                                    case .canceledLogin:
+                                        self.errorMessage = "Login was cancelled by user."
+                                    case .presentationContextNotProvided:
+                                        self.errorMessage = "Login failed: Presentation context not provided."
+                                    case .presentationContextInvalid:
+                                        self.errorMessage = "Login failed: Presentation context invalid."
+                                    @unknown default:
+                                        self.errorMessage = "Login failed with unknown error: \(authError.localizedDescription)"
+                                    }
+                                } else {
+                                    // ✅ Fallback for other error types
+                                    self.errorMessage = "Login failed: \(error.localizedDescription)"
+                                }
                   } else if let callback = callbackURL,
                             let components = URLComponents(url: callback, resolvingAgainstBaseURL: false),
                             let code = components.queryItems?.first(where: { $0.name == "code" })?.value {
