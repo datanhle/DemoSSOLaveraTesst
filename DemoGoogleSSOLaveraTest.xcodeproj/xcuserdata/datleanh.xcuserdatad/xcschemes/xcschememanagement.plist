@@ -4,10 +4,28 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
-		<key>DemoGoogleSSOLaveraTest.xcscheme_^#shared#^_</key>
+		<key>DemoGoogleSSOLaveraTest.xcscheme</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>F1A226562E459466007FA9E9</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>F1A226642E459468007FA9E9</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>F1A2266E2E459468007FA9E9</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>
